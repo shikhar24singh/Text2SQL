@@ -1,2 +1,6 @@
-data/
+__pycache__/
+*.py[cod]
+demo.sqlite3
 .venv/
+.env
+data/
