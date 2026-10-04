@@ -3,9 +3,9 @@ from pathlib import Path
 
 database_path = Path(__file__).parent/"data"/"database.sqlite"
 
-def get_schema(database_path: Path) -> str:
-
+def get_schema(database_path: Path) -> tuple[str, dict[str, dict[str, list[str]]]]:
     schema_lines = []
+    tables = {}
 
     with sqlite3.connect(database_path) as connection:
         rows = connection.execute(
@@ -14,7 +14,6 @@ def get_schema(database_path: Path) -> str:
             "ORDER BY name"
         ).fetchall()
 
-    with sqlite3.connect(database_path) as connection:
         for (table_name, ) in rows:
             column_name = connection.execute(
                 f"PRAGMA table_info('{table_name}')"
@@ -29,6 +28,10 @@ def get_schema(database_path: Path) -> str:
                 for fk in foreign_key
             ]
             relationships_text = ", ".join(relationships) if relationships else "no declared foreign keys"
+            tables[table_name] = {
+                "columns": column_names,
+                "relationships": relationships,
+            }
             schema_lines.append(
                 f"Table: {table_name}\n"
                 f"Columns: {column_text}\n"
@@ -36,7 +39,9 @@ def get_schema(database_path: Path) -> str:
                 )
 
     schema_description = '\n'.join(schema_lines)
-    return schema_description
+    return schema_description, tables
 
 if __name__ == "__main__":
-    print(get_schema(database_path))
+    schema_description, tables = get_schema(database_path)
+    print(schema_description)
+    print(f"\nUser-defined tables: {len(tables)}")
