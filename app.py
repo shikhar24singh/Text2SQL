@@ -10,7 +10,7 @@ db_schema, database_tables = get_schema(database_path)
 
 load_dotenv()
 client = genai.Client()
-model = "gemini-3.7-flash"
+model = "gemini-3.1-flash-lite"
 
 def run_agent_turn(user_message, previous_interaction_id):
     prompt = f"""
