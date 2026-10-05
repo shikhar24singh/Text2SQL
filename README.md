@@ -1,46 +1,69 @@
-# Text to SQL with a Clarification Engine
+# Text2SQL
 
-A learning project for turning natural-language questions into safe, useful SQL. The current work focuses on inspecting the database schema; clarification, SQL generation, and safe query execution are planned steps.
+A learning project that turns natural-language questions about a SQLite database into SQL. It uses Gemini to choose whether to answer a database-schema question, ask for clarification, or query records.
 
-## Current project state
-
-- `inspect_database.py` reads the SQLite database at `data/database.sqlite`.
-- It lists each table, its columns, and declared foreign-key relationships.
-- The database contains football data, including matches, teams, players, leagues, and player/team attributes.
-- The project does not yet include a text-to-SQL app or a model provider.
-
-The database file is local project data and is excluded from Git. Make sure `data/database.sqlite` exists before running the script.
-
-## Run the schema inspector
-
-Requires Python 3.10 or newer and uses only the Python standard library.
-
-```powershell
-python inspect_database.py
-```
-
-The script prints a schema summary to the terminal. The database path is defined relative to the script, so you can run the command from the project directory.
-
-## Planned workflow
+## How it works
 
 ```text
-Question → Understand intent → Clarify missing details → Draft SQL
-         → Check SQL safety → Execute read-only → Explain results
+User question
+    ↓
+Gemini receives the question and inspected database schema
+    ↓
+Choose an action: schema lookup, clarification, or SQL query
+    ↓
+For SQL: execute against SQLite in read-only mode
+    ↓
+If SQLite rejects the query: ask Gemini for one correction and try once
 ```
 
-A fluent query can still answer the wrong question. For example, “Which team is best?” could refer to wins, goals, or a particular season. The system should ask for the missing criteria rather than silently guessing.
+The app inspects the database schema at startup. It does not hard-code the soccer database's table or column names into the schema lookup behavior.
 
-## Learning roadmap
+## Requirements
 
-1. **Schema grounding:** improve schema inspection and identify useful tables and relationships.
-2. **Clarification state:** represent what is known, what is ambiguous, and what must be asked.
-3. **SQL generation:** add a model adapter after choosing a provider; provide only relevant schema and conversation context.
-4. **Safety:** validate generated SQL, then execute it with read-only database access and result limits.
-5. **Evaluation:** compare generated queries with expected behavior, including ambiguous and unsafe requests.
+- Python
+- A Gemini API key
+- The SQLite database at `data/database.sqlite`
 
-## Concepts
+Install the Python packages in the project's virtual environment:
 
-- **Schema grounding:** use real table and column names rather than letting a model invent them.
-- **Clarification:** ask a focused question when important details are missing or ambiguous.
-- **Separation of concerns:** keep conversation handling, model calls, SQL checks, and database access in distinct components.
-- **Read-only execution:** treat generated SQL as untrusted input and enforce read-only access in the database layer.
+```powershell
+python -m pip install google-genai python-dotenv
+```
+
+Create a `.env` file in the project folder and add your key:
+
+```text
+GEMINI_API_KEY=your_api_key_here
+```
+
+Keep `.env` and the database file out of Git. Do not put your API key in source code or commit it.
+
+## Run the app
+
+From the project folder, activate your virtual environment if needed, then run:
+
+```powershell
+python app.py
+```
+
+Type a question at `You:`. Enter `exit` or `quit` to stop. Enter `/reset` to clear the current clarification and Gemini conversation context.
+
+## Current capabilities
+
+- Lists the database's user-defined tables and describes tables using inspected columns and declared foreign keys.
+- Asks a follow-up question when Gemini considers a request ambiguous, then combines the answer with the original request.
+- Requests structured JSON from Gemini so the app can handle schema lookups, clarifications, and SQL generation as distinct actions.
+- Opens SQLite in read-only mode before running generated SQL.
+- Makes one repair attempt when SQLite raises an error for generated SQL.
+
+## Current limitations
+
+This is a learning project, not a production-ready database agent. Read-only connection mode prevents database writes, but the app does not yet have a separate SQL parser, query timeout, or result-size limit. The repair attempt handles SQLite query errors; a Gemini API error during that repair call is not yet handled gracefully. Query results are printed as raw Python rows, and the app does not verify that a successful query answered the user's intent correctly.
+
+The soccer database includes match, player, team, league, and attribute data. Some event details, such as goals, are stored as XML inside database columns, so they may need special parsing before natural-language questions about those details can be answered accurately.
+
+## Project files
+
+- `app.py` — conversation loop, Gemini actions, clarification state, SQL execution, and one-time repair attempt.
+- `inspect_database.py` — reads SQLite tables, columns, and declared foreign-key relationships.
+- `data/database.sqlite` — local database used by the app; keep this file out of Git.
